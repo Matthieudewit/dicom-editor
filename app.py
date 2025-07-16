@@ -265,7 +265,7 @@ def fetch_dicom_studies():
             flash("Successfully connected to DICOM service, but no studies were found.", "info")
         
         return render_template("select.html", 
-                             studies=get_local_studies_with_files(), 
+                             studies=get_local_studies_with_metadata(), 
                              dicom_studies=dicom_studies)
     except Exception as e:
         flash(f"Error fetching DICOM studies: {str(e)}", "error")
@@ -647,4 +647,15 @@ def reset_settings():
     return redirect(url_for('view_settings'))
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    # Debug mode configuration
+    debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'
+    port = int(os.getenv('FLASK_RUN_PORT', 5001))
+    
+    if debug_mode:
+        app.logger.info(f"Starting Flask app in debug mode on port {port}")
+        app.logger.info("Debug features enabled:")
+        app.logger.info("- Auto-reload on file changes")
+        app.logger.info("- Enhanced error pages")
+        app.logger.info("- VSCode debugging support")
+    
+    app.run(debug=debug_mode, port=port, host='127.0.0.1')

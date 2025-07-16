@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flask Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "env": {
+                "FLASK_DEBUG": "1",
+                "FLASK_ENV": "development"
+            },
+            "args": [],
+            "jinja": true,
+            "autoReload": {
+                "enable": true
+            },
+            "redirectOutput": true
+        },
+        {
+            "name": "Flask Debug (Custom Port)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal",
+            "env": {
+                "FLASK_DEBUG": "1",
+                "FLASK_ENV": "development",
+                "FLASK_RUN_PORT": "5001"
+            },
+            "args": [],
+            "jinja": true,
+            "autoReload": {
+                "enable": true
+            },
+            "redirectOutput": true
+        }
+    ]
+}
