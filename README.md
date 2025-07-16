@@ -92,6 +92,27 @@ python app.py
    - Open http://localhost:5001 in your browser
    - Use the settings page to configure paths and Azure credentials at runtime
 
+### 🐳 Docker Support
+
+Run the DICOM Editor in a containerized environment for easy deployment and consistent behavior across systems:
+
+```bash
+# Quick start with Docker Compose
+docker-compose up --build
+
+# Access the application
+open http://localhost:5001
+# or via OrbStack domain: http://dicom-editor.local
+```
+
+**Features:**
+- Pre-configured environment with all dependencies
+- Persistent data volumes for DICOM files and logs  
+- Health checks and automatic restarts
+- Ready for production deployment
+
+For detailed Docker setup, configuration options, and troubleshooting, see [DOCKER.md](DOCKER.md).
+
 ## 📖 User Guide
 
 ### Basic Workflow
