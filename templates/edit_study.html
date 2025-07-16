@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body>
+    <h2>Edit Study: {{ study }}</h2>
+    <form method="POST" action="{{ url_for('save_study', study=study) }}">
+        {% for key, value in fields.items() %}
+        <div class="field-row">
+            <label for="{{ key }}">{{ key }}</label>
+            <input type="text" name="{{ key }}" id="{{ key }}" value="{{ value }}">
+        </div>
+        {% endfor %}
+        <input type="submit" value="Save All">
+    </form>
+</body>
+
+</html>

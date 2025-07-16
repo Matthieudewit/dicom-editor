@@ -1,0 +1,100 @@
+body {
+    font-family: sans-serif;
+    margin: 2rem;
+    background: #f9f9f9;
+    color: #333;
+}
+
+h1,
+h2 {
+    color: #1a1a1a;
+}
+
+label {
+    font-weight: bold;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0;
+    box-sizing: border-box;
+}
+
+form {
+    max-width: 800px;
+}
+
+.field-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.field-row label {
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.field-row input {
+    flex: 3;
+    font-family: monospace;
+}
+
+.study-item {
+    background: #e3e3e3;
+    margin-top: 10px;
+}
+
+.study-header {
+    background: #f3f3f3;
+    padding: 12px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    /* margin-top: 10px; */
+    font-weight: bold;
+}
+
+.study-header:hover {
+    background: #e3e3e3;
+}
+
+.study-edit-button {
+    margin-left: 1rem;
+    text-decoration: none;
+    color: #007bff;
+}
+
+.study-edit-button:hover {
+    color: red;
+}
+
+.study-files {
+    display: none;
+    padding-left: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+table th,
+table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+table th {
+    background-color: #f0f0f0;
+    text-align: left;
+}
+
+input.search-box {
+    margin-bottom: 1rem;
+    padding: 8px;
+    width: 100%;
+    font-size: 1rem;
+    box-sizing: border-box;
+}

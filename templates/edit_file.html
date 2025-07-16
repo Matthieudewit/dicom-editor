@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        function filterTags() {
+            const input = document.getElementById("searchInput");
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll("#tagTable tbody tr");
+            rows.forEach(row => {
+                const desc = row.querySelector("td[data-description]").textContent.toLowerCase();
+                row.style.display = desc.includes(filter) ? "" : "none";
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <h2>Edit DICOM File: {{ file_path }}</h2>
+
+    <input type="text" id="searchInput" class="search-box" onkeyup="filterTags()"
+        placeholder="Search by Tag Description...">
+
+    <form method="POST" action="{{ url_for('save_file', file_path=file_path) }}">
+        <table id="tagTable">
+            <thead>
+                <tr>
+                    <th>Tag ID</th>
+                    <th>Tag Description</th>
+                    <th>VR</th>
+                    <th>VM</th>
+                    <th>Length</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for elem in fields %}
+                <tr>
+                    <td>{{ elem.tag }}</td>
+                    <td data-description="{{ elem.keyword }}">{{ elem.keyword }}</td>
+                    <td>{{ elem.VR }}</td>
+                    <td>{{ elem.VM }}</td>
+                    <td>{{ elem.length }}</td>
+                    <td>
+                        <input type="text" name="{{ elem.keyword }}" value="{{ elem.value }}">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <input type="submit" value="Save">
+    </form>
+</body>
+
+</html>

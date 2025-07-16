@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        function toggleStudy(id) {
+            const el = document.getElementById(id);
+            el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+        }
+    </script>
+</head>
+
+<body>
+    <h2>Select a Study or DICOM File</h2>
+    {% for study, files in studies.items() %}
+    <div class="study-item" onclick="toggleStudy('study-{{ loop.index }}')">
+        <div class="study-header">
+            <span>{{ study }} 
+                <a class="study-edit-button" href="{{ url_for('edit_study', study=study) }}">[Edit study]</a>
+            </span>
+            <!-- <span class="chevron down" id="chevron-{{ study }}">&#9660;</span> -->
+        </div>
+        <ul id="study-{{ loop.index }}" class="study-files">
+            {% for file in files %}
+            <li><a href="{{ url_for('edit_file', file_path=file) }}">{{ file }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</body>
+
+</html>
