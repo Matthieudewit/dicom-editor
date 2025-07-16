@@ -54,7 +54,7 @@
 </head>
 
 <body>
-    <h2>Edit DICOM File: {{ file_path }}</h2>
+    <h2>Edit DICOM File: {{ file_path }} <i class="tag-count">({{ tag_count }} tags)</i></h2>
 
     <input type="text" id="searchInput" class="search-box" onkeyup="filterTags()"
         placeholder="Search by Tag Description...">

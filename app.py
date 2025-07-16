@@ -180,7 +180,10 @@ def edit_file(file_path):
                     "is_deletable": (elem.keyword or "") not in protected_tags
                 })
     
-    return render_template("edit_file.html", fields=fields, file_path=file_path)
+    # Calculate total tag count
+    tag_count = len(fields)
+    
+    return render_template("edit_file.html", fields=fields, file_path=file_path, tag_count=tag_count)
 
 
 @app.route("/save-file/<path:file_path>", methods=["POST"])
@@ -542,6 +545,22 @@ def get_local_studies_with_metadata():
             for path in dicom_files
         ]
         
+        # Calculate series and image counts
+        series_count = 0
+        image_count = len(dicom_files)
+        
+        # Count unique series by examining the folder structure
+        # Series are typically organized in separate folders
+        series_folders = set()
+        for file_path in dicom_files:
+            # Get the parent directory name (series folder)
+            relative_path = os.path.relpath(file_path, study_path)
+            series_folder = os.path.dirname(relative_path)
+            if series_folder:  # Only count if there's actually a series folder
+                series_folders.add(series_folder)
+        
+        series_count = len(series_folders) if series_folders else 1  # At least 1 series if files exist
+        
         # Extract metadata from first DICOM file
         metadata = {
             'PatientName': '',
@@ -567,7 +586,9 @@ def get_local_studies_with_metadata():
         studies_with_metadata[study] = {
             'files': files_list,
             'metadata': metadata,
-            'is_valid_for_upload': is_study_valid_for_upload(metadata)
+            'is_valid_for_upload': is_study_valid_for_upload(metadata),
+            'series_count': series_count,
+            'image_count': image_count
         }
     
     return studies_with_metadata

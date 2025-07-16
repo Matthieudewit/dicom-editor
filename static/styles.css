@@ -107,6 +107,10 @@ form {
     background: #e3e3e3;
 }
 
+.study-content-count {
+    opacity: 0.4;
+}
+
 .study-edit-button {
     margin-left: 1rem;
     text-decoration: none;
@@ -367,6 +371,10 @@ input.search-box {
 }
 
 /* DICOM tag editing styles */
+.tag-count {
+    opacity: 0.4;
+}
+
 .delete-tag-button {
     background: #dc3545;
     color: white;

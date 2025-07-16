@@ -88,7 +88,7 @@
     {% for study, study_data in studies.items() %}
     <div class="study-item" onclick="toggleStudy('study-{{ loop.index }}')">
         <div class="study-header">
-            <span>{{ study }} 
+            <span>{{ study }} <i class="study-content-count">({{ study_data.series_count }} series | {{ study_data.image_count }} images)</i>
                 <a class="study-edit-button" href="{{ url_for('edit_study', study=study) }}">[Edit study]</a>
                 {% if study_data.is_valid_for_upload %}
                 <a class="study-upload-button" href="{{ url_for('upload_study', study=study) }}">[Upload to DICOM]</a>
