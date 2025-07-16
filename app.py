@@ -186,13 +186,15 @@ def search_dicom_studies():
         
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            return response.json()
+            studies = response.json()
+            # Return tuple (success, studies_list)
+            return True, studies if studies else []
         else:
             logging.error(f"Failed to search studies. Status code: {response.status_code}")
-            return []
+            return False, []
     except Exception as e:
         logging.error(f"Error searching DICOM studies: {e}")
-        return []
+        return False, []
 
 def generate_random_study_instance_uid():
     """Generate a new Study Instance UID"""
@@ -237,8 +239,12 @@ def upload_study_to_dicom(study_path):
 def fetch_dicom_studies():
     """Fetch studies from DICOM service and display them"""
     try:
-        studies = search_dicom_studies()
+        success, studies = search_dicom_studies()
         dicom_studies = []
+        
+        if not success:
+            flash("Error connecting to DICOM service or retrieving studies.", "error")
+            return redirect(url_for('index'))
         
         for study in studies:
             study_data = {
@@ -253,6 +259,10 @@ def fetch_dicom_studies():
                 'study_time': study.get('00080030', {}).get('Value', [''])[0]
             }
             dicom_studies.append(study_data)
+        
+        # Add info message if search was successful but no studies found
+        if success and len(studies) == 0:
+            flash("Successfully connected to DICOM service, but no studies were found.", "info")
         
         return render_template("select.html", 
                              studies=get_local_studies_with_files(), 
