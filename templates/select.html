@@ -13,11 +13,46 @@
 
 <body>
     <h2>Select a Study or DICOM File</h2>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Button to fetch studies from DICOM service -->
+    <div class="dicom-actions">
+        <a href="{{ url_for('fetch_dicom_studies') }}" class="fetch-button">Fetch Studies from DICOM Service</a>
+    </div>
+    
+    <!-- Display DICOM service studies if available -->
+    {% if dicom_studies %}
+    <h3>Studies from DICOM Service</h3>
+    {% for study in dicom_studies %}
+    <div class="dicom-study-item">
+        <div class="study-header">
+            <span><strong>{{ study.patient_name }}</strong> - {{ study.study_description }} ({{ study.study_date }})</span>
+        </div>
+        <div class="study-details">
+            <p>Study Instance UID: {{ study.study_instance_uid }}</p>
+            <p>Patient ID: {{ study.patient_id }}</p>
+            <p>Accession Number: {{ study.accession_number }}</p>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+    
+    <!-- Local studies section -->
+    <h3>Local Studies</h3>
     {% for study, files in studies.items() %}
     <div class="study-item" onclick="toggleStudy('study-{{ loop.index }}')">
         <div class="study-header">
             <span>{{ study }} 
                 <a class="study-edit-button" href="{{ url_for('edit_study', study=study) }}">[Edit study]</a>
+                <a class="study-upload-button" href="{{ url_for('upload_study', study=study) }}">[Upload to DICOM]</a>
             </span>
             <!-- <span class="chevron down" id="chevron-{{ study }}">&#9660;</span> -->
         </div>

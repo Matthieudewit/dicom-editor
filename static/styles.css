@@ -98,3 +98,78 @@ input.search-box {
     font-size: 1rem;
     box-sizing: border-box;
 }
+
+.dicom-actions {
+    margin: 20px 0;
+    padding: 15px;
+    background: #e8f4fd;
+    border: 1px solid #b8daff;
+    border-radius: 5px;
+}
+
+.fetch-button {
+    background: #007bff;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.fetch-button:hover {
+    background: #0056b3;
+    color: white;
+}
+
+.study-upload-button {
+    margin-left: 1rem;
+    text-decoration: none;
+    color: #28a745;
+}
+
+.study-upload-button:hover {
+    color: #155724;
+}
+
+.dicom-study-item {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 5px;
+    margin: 10px 0;
+    padding: 15px;
+}
+
+.dicom-study-item .study-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: default;
+    margin-bottom: 10px;
+}
+
+.study-details {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.study-details p {
+    margin: 5px 0;
+}
+
+.flash {
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+}
+
+.flash.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.flash.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}

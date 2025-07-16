@@ -32,6 +32,7 @@ MANIFEST
 # Ignore everything inside the dicoms/ folder
 dicoms/*
 !dicoms/.gitkeep
+.ignore
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

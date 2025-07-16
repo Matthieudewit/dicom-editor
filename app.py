@@ -1,9 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import os
 import pydicom
 from config import DICOM_ROOT
+import requests
+from urllib3.filepost import encode_multipart_formdata, choose_boundary
+from azure.identity import ClientSecretCredential
+from io import BytesIO
+from pathlib import Path
+import logging
+from pydicom.uid import generate_uid
+import requests_toolbelt as tb
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # For flash messages
 
 def get_all_studies():
     return [d for d in os.listdir(DICOM_ROOT) if os.path.isdir(os.path.join(DICOM_ROOT, d))]
@@ -18,17 +29,7 @@ def get_dicom_files(study_path):
 
 @app.route("/")
 def index():
-    studies = get_all_studies()
-    # study_paths = {study: get_dicom_files(os.path.join(DICOM_ROOT, study)) for study in studies}
-
-    study_paths = {
-    study: [
-        os.path.relpath(path, DICOM_ROOT)
-        for path in get_dicom_files(os.path.join(DICOM_ROOT, study))
-    ]
-    for study in studies
-}
-
+    study_paths = get_local_studies_with_files()
     return render_template("select.html", studies=study_paths)
 
 @app.route("/edit-study/<study>")
@@ -94,6 +95,151 @@ def save_file(file_path):
             setattr(ds, key, request.form[key])
     ds.save_as(abs_path)
     return redirect(url_for('edit_file', file_path=file_path))
+
+def get_bearer_token():
+    """Get Azure authentication token"""
+    try:
+        client_id = os.getenv("AZURE_DICOM_CLIENT_ID")
+        client_secret = os.getenv("AZURE_DICOM_SECRET")
+        tenant_id = os.getenv("AZURE_TENANT_ID")
+        
+        if not all([client_id, client_secret, tenant_id]):
+            raise ValueError("Missing Azure credentials in environment variables")
+            
+        credential = ClientSecretCredential(
+            client_id=client_id,
+            client_secret=client_secret,
+            tenant_id=tenant_id
+        )
+        token = credential.get_token('https://dicom.healthcareapis.azure.com/.default')
+        return f'Bearer {token.token}'
+    except Exception as e:
+        logging.error(f"Failed to get authentication token: {e}")
+        raise
+
+def encode_multipart_related(fields, boundary=None):
+    """Encode multipart related content for DICOM STOW-RS"""
+    if boundary is None:
+        boundary = choose_boundary()
+    body, _ = encode_multipart_formdata(fields, boundary)
+    content_type = str('multipart/related; boundary=%s' % boundary)
+    return body, content_type
+
+def search_dicom_studies():
+    """Search for studies in the DICOM service"""
+    try:
+        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured")
+            
+        headers = {"Authorization": get_bearer_token()}
+        url = f'{base_url}/v2/studies'
+        
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logging.error(f"Failed to search studies. Status code: {response.status_code}")
+            return []
+    except Exception as e:
+        logging.error(f"Error searching DICOM studies: {e}")
+        return []
+
+def generate_random_study_instance_uid():
+    """Generate a new Study Instance UID"""
+    return generate_uid(prefix='1.2.528.1.1036.')
+
+def upload_study_to_dicom(study_path):
+    """Upload a local study to the DICOM service using STOW-RS"""
+    try:
+        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured")
+            
+        headers = {"Authorization": get_bearer_token()}
+        study_instance_uid = generate_random_study_instance_uid()
+        url = f'{base_url}/v2/studies/{study_instance_uid}'
+        headers['Accept'] = 'application/dicom+json'
+        
+        parts = {}
+        dicom_files = get_dicom_files(study_path)
+        
+        for file_path in dicom_files:
+            dicom_file = pydicom.dcmread(file_path, force=True)
+            dicom_file.StudyInstanceUID = study_instance_uid
+            
+            with BytesIO() as buffer:
+                dicom_file.save_as(buffer)
+                buffer.seek(0)
+                file_name = os.path.basename(file_path)
+                parts[file_name] = ('dicomfile', buffer.read(), 'application/dicom')
+        
+        body, content_type = encode_multipart_related(fields=parts)
+        headers['Content-Type'] = content_type
+        
+        response = requests.post(url, data=body, headers=headers, verify=True)
+        return response.status_code in [200, 202]
+    except Exception as e:
+        logging.error(f"Error uploading study to DICOM service: {e}")
+        return False
+
+@app.route("/fetch-dicom-studies")
+def fetch_dicom_studies():
+    """Fetch studies from DICOM service and display them"""
+    try:
+        studies = search_dicom_studies()
+        dicom_studies = []
+        
+        for study in studies:
+            study_data = {
+                'study_instance_uid': study.get('0020000D', {}).get('Value', [''])[0],
+                'patient_name': study.get('00100010', {}).get('Value', [''])[0],
+                'patient_id': study.get('00100020', {}).get('Value', [''])[0],
+                'patient_birth_date': study.get('00100030', {}).get('Value', [''])[0],
+                'accession_number': study.get('00080050', {}).get('Value', [''])[0],
+                'study_description': study.get('00081030', {}).get('Value', [''])[0],
+                'referring_physician_name': study.get('00080090', {}).get('Value', [''])[0],
+                'study_date': study.get('00080020', {}).get('Value', [''])[0],
+                'study_time': study.get('00080030', {}).get('Value', [''])[0]
+            }
+            dicom_studies.append(study_data)
+        
+        return render_template("select.html", 
+                             studies=get_local_studies_with_files(), 
+                             dicom_studies=dicom_studies)
+    except Exception as e:
+        flash(f"Error fetching DICOM studies: {str(e)}", "error")
+        return redirect(url_for('index'))
+
+@app.route("/upload-study/<study>")
+def upload_study(study):
+    """Upload a local study to the DICOM service"""
+    try:
+        study_path = os.path.join(DICOM_ROOT, study)
+        if not os.path.exists(study_path):
+            flash(f"Study '{study}' not found", "error")
+            return redirect(url_for('index'))
+        
+        success = upload_study_to_dicom(study_path)
+        if success:
+            flash(f"Study '{study}' successfully uploaded to DICOM service", "success")
+        else:
+            flash(f"Failed to upload study '{study}' to DICOM service", "error")
+    except Exception as e:
+        flash(f"Error uploading study: {str(e)}", "error")
+    
+    return redirect(url_for('index'))
+
+def get_local_studies_with_files():
+    """Get local studies with their files (existing functionality)"""
+    studies = get_all_studies()
+    return {
+        study: [
+            os.path.relpath(path, DICOM_ROOT)
+            for path in get_dicom_files(os.path.join(DICOM_ROOT, study))
+        ]
+        for study in studies
+    }
 
 if __name__ == "__main__":
     app.run(debug=True)
