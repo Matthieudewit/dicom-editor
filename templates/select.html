@@ -34,12 +34,15 @@
     {% for study in dicom_studies %}
     <div class="dicom-study-item">
         <div class="study-header">
-            <span><strong>{{ study.patient_name }}</strong> - {{ study.study_description }} ({{ study.study_date }})</span>
+            <span><strong>{{ study.patient_name }}</strong> - {{ study.study_description }} ({{ study.study_date }})
+                <a class="study-download-button" href="{{ url_for('download_study', study_instance_uid=study.study_instance_uid, patient_name=study.patient_name|urlencode) }}">[Download to Local]</a>
+            </span>
         </div>
         <div class="study-details">
             <p>Study Instance UID: {{ study.study_instance_uid }}</p>
             <p>Patient ID: {{ study.patient_id }}</p>
             <p>Accession Number: {{ study.accession_number }}</p>
+            <p>Referring Physician: {{ study.referring_physician_name }}</p>
         </div>
     </div>
     {% endfor %}

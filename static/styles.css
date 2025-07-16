@@ -131,6 +131,17 @@ input.search-box {
     color: #155724;
 }
 
+.study-download-button {
+    margin-left: 1rem;
+    text-decoration: none;
+    color: #17a2b8;
+    font-weight: bold;
+}
+
+.study-download-button:hover {
+    color: #138496;
+}
+
 .dicom-study-item {
     background: #fff3cd;
     border: 1px solid #ffeaa7;

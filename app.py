@@ -16,6 +16,16 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For flash messages
 
+# Configure logging for the Flask app
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('dicom_editor.log'),
+        logging.StreamHandler()
+    ]
+)
+
 def get_all_studies():
     return [d for d in os.listdir(DICOM_ROOT) if os.path.isdir(os.path.join(DICOM_ROOT, d))]
 
@@ -240,6 +250,107 @@ def get_local_studies_with_files():
         ]
         for study in studies
     }
+
+def retrieve_study_from_dicom(study_instance_uid, patient_name):
+    """Download a study from DICOM service to local storage"""
+    try:
+        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured")
+            
+        headers = {"Authorization": get_bearer_token()}
+        url = f'{base_url}/v2/studies/{study_instance_uid}'
+        headers['Accept'] = 'multipart/related; type="application/dicom"; transfer-syntax=*'
+        
+        logging.debug(f"Retrieving study from URL: {url}")
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            # Sanitize patient name for folder creation
+            patient_name_str = patient_name.replace(' ', '_') if patient_name else 'Unknown_Patient'
+            study_instance_uid_str = str(study_instance_uid).replace('.', '_')
+            folder_name = f"{patient_name_str}_{study_instance_uid_str}"
+            folder_name = sanitize_filename(folder_name)
+            
+            # Create local study folder
+            study_folder = os.path.join(DICOM_ROOT, folder_name)
+            os.makedirs(study_folder, exist_ok=True)
+            
+            # Get metadata first
+            metadata_url = f'{base_url}/v2/studies/{study_instance_uid}/metadata'
+            metadata_headers = {'Accept': 'application/dicom+json', "Authorization": headers["Authorization"]}
+            metadata_response = requests.get(metadata_url, headers=metadata_headers)
+            
+            if metadata_response.status_code == 200:
+                metadata = metadata_response.json()
+                logging.debug(f"Retrieved metadata for {len(metadata)} instances")
+            else:
+                logging.error(f"Failed to retrieve metadata. Status code: {metadata_response.status_code}")
+                return False, "Failed to retrieve study metadata"
+            
+            # Parse multipart response to extract DICOM files
+            mpd = tb.MultipartDecoder.from_response(response)
+            series_folders = {}
+            file_count = 0
+            
+            for part in mpd.parts:
+                if b'application/dicom' in part.headers[b'Content-Type']:
+                    dicom_file = pydicom.dcmread(BytesIO(part.content), force=True)
+                    
+                    # Create series folder if it doesn't exist
+                    series_uid = getattr(dicom_file, 'SeriesInstanceUID', 'unknown_series')
+                    series_number = getattr(dicom_file, 'SeriesNumber', '00000')
+                    series_folder_name = f"series-{str(series_number).zfill(5)}"
+                    
+                    if series_folder_name not in series_folders:
+                        series_folder_path = os.path.join(study_folder, series_folder_name)
+                        os.makedirs(series_folder_path, exist_ok=True)
+                        series_folders[series_folder_name] = series_folder_path
+                    
+                    # Save DICOM file
+                    instance_number = getattr(dicom_file, 'InstanceNumber', file_count)
+                    file_name = f"image-{str(instance_number).zfill(5)}.dcm"
+                    file_path = os.path.join(series_folders[series_folder_name], file_name)
+                    
+                    dicom_file.save_as(file_path)
+                    file_count += 1
+                    
+                    logging.debug(f"Saved DICOM file: {file_path}")
+            
+            return True, f"Study downloaded successfully with {file_count} files to {folder_name}"
+            
+        else:
+            logging.error(f"Failed to retrieve study. Status code: {response.status_code}")
+            return False, f"Failed to retrieve study from DICOM service (Status: {response.status_code})"
+            
+    except Exception as e:
+        logging.error(f"Error retrieving study from DICOM service: {e}")
+        return False, f"Error downloading study: {str(e)}"
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for safe folder creation"""
+    invalid_chars = '<>:"/\\|?*'
+    for ch in invalid_chars:
+        filename = filename.replace(ch, '_')
+    return filename
+
+@app.route("/download-study/<study_instance_uid>/<path:patient_name>")
+def download_study(study_instance_uid, patient_name):
+    """Download a study from DICOM service to local storage"""
+    try:
+        # URL decode the patient name
+        from urllib.parse import unquote
+        patient_name = unquote(patient_name)
+        
+        success, message = retrieve_study_from_dicom(study_instance_uid, patient_name)
+        if success:
+            flash(message, "success")
+        else:
+            flash(message, "error")
+    except Exception as e:
+        flash(f"Error downloading study: {str(e)}", "error")
+    
+    return redirect(url_for('fetch_dicom_studies'))
 
 if __name__ == "__main__":
     app.run(debug=True)
