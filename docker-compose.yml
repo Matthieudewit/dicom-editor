@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  dicom-editor:
+    build: .
+    ports:
+      - "5001:5001"
+    volumes:
+      # Mount local dicoms directory to container
+      - ./dicoms:/app/dicoms
+      # Mount logs directory for persistent logging
+      - ./logs:/app/logs
+    labels:
+      - dev.orbstack.domains=dicom-editor.local
+    env_file:
+      - ./.env
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

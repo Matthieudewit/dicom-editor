@@ -961,12 +961,15 @@ if __name__ == "__main__":
     # Debug mode configuration
     debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'
     port = int(os.getenv('FLASK_RUN_PORT', 5001))
+    host = os.getenv('FLASK_RUN_HOST', '127.0.0.1')
     
     if debug_mode:
-        app.logger.info(f"Starting Flask app in debug mode on port {port}")
+        app.logger.info(f"Starting Flask app in debug mode on {host}:{port}")
         app.logger.info("Debug features enabled:")
         app.logger.info("- Auto-reload on file changes")
         app.logger.info("- Enhanced error pages")
         app.logger.info("- VSCode debugging support")
+    else:
+        app.logger.info(f"Starting Flask app on {host}:{port}")
     
-    app.run(debug=debug_mode, port=port, host='127.0.0.1')
+    app.run(debug=debug_mode, port=port, host=host)
