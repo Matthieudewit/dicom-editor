@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .setting-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .setting-label {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .setting-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .setting-description {
+            font-size: 12px;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        
+        .settings-form {
+            margin: 2rem 0;
+        }
+        
+        .submit-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 1rem;
+        }
+        
+        .submit-button:hover {
+            background-color: #218838;
+        }
+        
+        .reset-button {
+            background-color: #6c757d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .reset-button:hover {
+            background-color: #5a6268;
+        }
+        
+        .back-button {
+            background-color: #007bff;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+        
+        .back-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page-header">
+        <h2>Application Settings</h2>
+        <div class="utility-buttons">
+            <a href="{{ url_for('index') }}" class="back-button">Back to Studies</a>
+        </div>
+    </div>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="settings-container">
+        <p>These settings are loaded from the .env file and can be modified for the current session only. Changes will be lost when the application is restarted.</p>
+        
+        <form method="POST" action="{{ url_for('update_settings') }}" class="settings-form">
+            <div class="setting-item">
+                <div class="setting-label">DICOM Root Directory</div>
+                <input type="text" name="DICOM_ROOT" value="{{ settings.DICOM_ROOT }}" class="setting-input">
+                <div class="setting-description">Local directory where DICOM studies are stored</div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Azure Tenant ID</div>
+                <input type="text" name="AZURE_TENANT_ID" value="{{ settings.AZURE_TENANT_ID }}" class="setting-input">
+                <div class="setting-description">Azure Active Directory tenant identifier</div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Azure DICOM Endpoint</div>
+                <input type="text" name="AZURE_DICOM_ENDPOINT" value="{{ settings.AZURE_DICOM_ENDPOINT }}" class="setting-input">
+                <div class="setting-description">Azure Healthcare APIs DICOM service endpoint URL</div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Azure DICOM Client ID</div>
+                <input type="text" name="AZURE_DICOM_CLIENT_ID" value="{{ settings.AZURE_DICOM_CLIENT_ID }}" class="setting-input">
+                <div class="setting-description">Azure application (client) ID for DICOM service authentication</div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Azure DICOM Client Secret</div>
+                <input type="password" name="AZURE_DICOM_SECRET" value="{{ settings.AZURE_DICOM_SECRET }}" class="setting-input">
+                <div class="setting-description">Azure application client secret (shown as password for security)</div>
+            </div>
+            
+            <button type="submit" class="submit-button">Update Settings</button>
+            <button type="button" class="reset-button" onclick="resetForm()">Reset to Original</button>
+        </form>
+    </div>
+    
+    <script>
+        function resetForm() {
+            if (confirm('Are you sure you want to reset all settings to their original values from the .env file?')) {
+                window.location.href = "{{ url_for('reset_settings') }}";
+            }
+        }
+    </script>
+</body>
+
+</html>

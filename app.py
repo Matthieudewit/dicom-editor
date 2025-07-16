@@ -1,7 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 import os
 import pydicom
-from config import DICOM_ROOT
 import requests
 from urllib3.filepost import encode_multipart_formdata, choose_boundary
 from azure.identity import ClientSecretCredential
@@ -12,7 +11,11 @@ from pydicom.uid import generate_uid
 import requests_toolbelt as tb
 import urllib3
 import shutil
+from dotenv import load_dotenv
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For flash messages
@@ -27,8 +30,37 @@ logging.basicConfig(
     ]
 )
 
+# Session-based settings management
+def get_current_settings():
+    """Get current settings from session or environment variables"""
+    if 'settings' not in session:
+        session['settings'] = {
+            'DICOM_ROOT': os.getenv("DICOM_ROOT", "./dicoms"),
+            'AZURE_DICOM_ENDPOINT': os.getenv("AZURE_DICOM_ENDPOINT"),
+            'AZURE_DICOM_CLIENT_ID': os.getenv("AZURE_DICOM_CLIENT_ID"),
+            'AZURE_DICOM_SECRET': os.getenv("AZURE_DICOM_SECRET"),
+            'AZURE_TENANT_ID': os.getenv("AZURE_TENANT_ID")
+        }
+    return session['settings']
+
+def get_dicom_root():
+    """Get current DICOM_ROOT from session settings"""
+    settings = get_current_settings()
+    return settings.get('DICOM_ROOT', "./dicoms")
+
+def get_azure_settings():
+    """Get current Azure settings from session"""
+    settings = get_current_settings()
+    return {
+        'client_id': settings.get('AZURE_DICOM_CLIENT_ID'),
+        'client_secret': settings.get('AZURE_DICOM_SECRET'),
+        'tenant_id': settings.get('AZURE_TENANT_ID'),
+        'endpoint': settings.get('AZURE_DICOM_ENDPOINT')
+    }
+
 def get_all_studies():
-    return [d for d in os.listdir(DICOM_ROOT) if os.path.isdir(os.path.join(DICOM_ROOT, d))]
+    dicom_root = get_dicom_root()
+    return [d for d in os.listdir(dicom_root) if os.path.isdir(os.path.join(dicom_root, d))]
 
 def get_dicom_files(study_path):
     dicoms = []
@@ -45,7 +77,8 @@ def index():
 
 @app.route("/edit-study/<study>")
 def edit_study(study):
-    study_path = os.path.join(DICOM_ROOT, study)
+    dicom_root = get_dicom_root()
+    study_path = os.path.join(dicom_root, study)
     dicom_files = get_dicom_files(study_path)
 
     sample = pydicom.dcmread(dicom_files[0], force=True) if dicom_files else None
@@ -66,7 +99,8 @@ def edit_study(study):
 
 @app.route("/save-study/<study>", methods=["POST"])
 def save_study(study):
-    study_path = os.path.join(DICOM_ROOT, study)
+    dicom_root = get_dicom_root()
+    study_path = os.path.join(dicom_root, study)
     dicom_files = get_dicom_files(study_path)
 
     for file in dicom_files:
@@ -80,7 +114,8 @@ def save_study(study):
 
 @app.route("/edit-file/<path:file_path>")
 def edit_file(file_path):
-    abs_path = os.path.join(DICOM_ROOT, file_path)
+    dicom_root = get_dicom_root()
+    abs_path = os.path.join(dicom_root, file_path)
     ds = pydicom.dcmread(abs_path, force=True)
     fields = [
         {
@@ -99,7 +134,8 @@ def edit_file(file_path):
 
 @app.route("/save-file/<path:file_path>", methods=["POST"])
 def save_file(file_path):
-    abs_path = os.path.join(DICOM_ROOT, file_path)
+    dicom_root = get_dicom_root()
+    abs_path = os.path.join(dicom_root, file_path)
     ds = pydicom.dcmread(abs_path, force=True)
     for key in request.form:
         if hasattr(ds, key):
@@ -110,12 +146,13 @@ def save_file(file_path):
 def get_bearer_token():
     """Get Azure authentication token"""
     try:
-        client_id = os.getenv("AZURE_DICOM_CLIENT_ID")
-        client_secret = os.getenv("AZURE_DICOM_SECRET")
-        tenant_id = os.getenv("AZURE_TENANT_ID")
+        azure_settings = get_azure_settings()
+        client_id = azure_settings['client_id']
+        client_secret = azure_settings['client_secret']
+        tenant_id = azure_settings['tenant_id']
         
         if not all([client_id, client_secret, tenant_id]):
-            raise ValueError("Missing Azure credentials in environment variables")
+            raise ValueError("Missing Azure credentials in session settings")
             
         credential = ClientSecretCredential(
             client_id=client_id,
@@ -139,9 +176,10 @@ def encode_multipart_related(fields, boundary=None):
 def search_dicom_studies():
     """Search for studies in the DICOM service"""
     try:
-        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        azure_settings = get_azure_settings()
+        base_url = azure_settings['endpoint']
         if not base_url:
-            raise ValueError("AZURE_DICOM_ENDPOINT not configured")
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured in session settings")
             
         headers = {"Authorization": get_bearer_token()}
         url = f'{base_url}/v2/studies'
@@ -163,7 +201,8 @@ def generate_random_study_instance_uid():
 def upload_study_to_dicom(study_path):
     """Upload a local study to the DICOM service using STOW-RS"""
     try:
-        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        azure_settings = get_azure_settings()
+        base_url = azure_settings.get("AZURE_DICOM_ENDPOINT")
         if not base_url:
             raise ValueError("AZURE_DICOM_ENDPOINT not configured")
             
@@ -226,7 +265,8 @@ def fetch_dicom_studies():
 def upload_study(study):
     """Upload a local study to the DICOM service"""
     try:
-        study_path = os.path.join(DICOM_ROOT, study)
+        current_settings = get_current_settings()
+        study_path = os.path.join(current_settings['DICOM_ROOT'], study)
         if not os.path.exists(study_path):
             flash(f"Study '{study}' not found", "error")
             return redirect(url_for('index'))
@@ -265,11 +305,13 @@ def upload_study(study):
 
 def get_local_studies_with_files():
     """Get local studies with their files (existing functionality)"""
+    current_settings = get_current_settings()
+    dicom_root = current_settings['DICOM_ROOT']
     studies = get_all_studies()
     return {
         study: [
-            os.path.relpath(path, DICOM_ROOT)
-            for path in get_dicom_files(os.path.join(DICOM_ROOT, study))
+            os.path.relpath(path, dicom_root)
+            for path in get_dicom_files(os.path.join(dicom_root, study))
         ]
         for study in studies
     }
@@ -289,12 +331,14 @@ def get_local_studies_with_metadata():
     """Get local studies with their metadata for display"""
     studies = get_all_studies()
     studies_with_metadata = {}
+    current_settings = get_current_settings()
+    dicom_root = current_settings['DICOM_ROOT']
     
     for study in studies:
-        study_path = os.path.join(DICOM_ROOT, study)
+        study_path = os.path.join(dicom_root, study)
         dicom_files = get_dicom_files(study_path)
         files_list = [
-            os.path.relpath(path, DICOM_ROOT)
+            os.path.relpath(path, dicom_root)
             for path in dicom_files
         ]
         
@@ -331,7 +375,8 @@ def get_local_studies_with_metadata():
 def retrieve_study_from_dicom(study_instance_uid):
     """Download a study from DICOM service to local storage"""
     try:
-        base_url = os.getenv("AZURE_DICOM_ENDPOINT")
+        azure_settings = get_azure_settings()
+        base_url = azure_settings.get("AZURE_DICOM_ENDPOINT")
         if not base_url:
             raise ValueError("AZURE_DICOM_ENDPOINT not configured")
             
@@ -348,7 +393,8 @@ def retrieve_study_from_dicom(study_instance_uid):
             folder_name = sanitize_filename(folder_name)
             
             # Create local study folder
-            study_folder = os.path.join(DICOM_ROOT, folder_name)
+            current_settings = get_current_settings()
+            study_folder = os.path.join(current_settings['DICOM_ROOT'], folder_name)
             os.makedirs(study_folder, exist_ok=True)
             
             # Get metadata first
@@ -428,7 +474,8 @@ def load_sample_data():
     """Load sample data by copying from dicoms_sample to dicoms folder"""
     try:
         sample_folder = "dicoms_sample"
-        target_folder = DICOM_ROOT
+        current_settings = get_current_settings()
+        target_folder = current_settings['DICOM_ROOT']
         
         if not os.path.exists(sample_folder):
             flash("Sample data folder not found", "error")
@@ -485,10 +532,12 @@ def load_sample_data():
 def delete_study(study):
     """Delete a local study folder and all its contents"""
     try:
-        study_path = os.path.join(DICOM_ROOT, study)
+        current_settings = get_current_settings()
+        dicom_root = current_settings['DICOM_ROOT']
+        study_path = os.path.join(dicom_root, study)
         
         # Security check: ensure the study path is within DICOM_ROOT
-        if not os.path.abspath(study_path).startswith(os.path.abspath(DICOM_ROOT)):
+        if not os.path.abspath(study_path).startswith(os.path.abspath(dicom_root)):
             flash("Invalid study path", "error")
             return redirect(url_for('index'))
         
@@ -511,5 +560,81 @@ def delete_study(study):
     
     return redirect(url_for('index'))
 
+@app.route("/view-logs")
+def view_logs():
+    """Display the application log file"""
+    log_content = []
+    try:
+        if os.path.exists('dicom_editor.log'):
+            with open('dicom_editor.log', 'r', encoding='utf-8') as f:
+                log_content = f.readlines()
+                # Get last 500 lines to avoid huge pages
+                log_content = log_content[-500:] if len(log_content) > 500 else log_content
+                # Strip newlines for cleaner display
+                log_content = [line.rstrip() for line in log_content]
+        else:
+            flash("Log file not found", "warning")
+    except Exception as e:
+        flash(f"Error reading log file: {str(e)}", "error")
+        logging.error(f"Error reading log file: {e}")
+    
+    return render_template('logfile.html', log_content=log_content)
+
+@app.route("/view-settings")
+def view_settings():
+    """Display and edit application settings"""
+    settings = get_current_settings()
+    return render_template('settings.html', settings=settings)
+
+@app.route("/update-settings", methods=["POST"])
+def update_settings():
+    """Update application settings for current session"""
+    try:
+        # Get form data and update session settings
+        session['settings'] = {
+            'DICOM_ROOT': request.form.get('DICOM_ROOT', '').strip(),
+            'AZURE_TENANT_ID': request.form.get('AZURE_TENANT_ID', '').strip(),
+            'AZURE_DICOM_ENDPOINT': request.form.get('AZURE_DICOM_ENDPOINT', '').strip(),
+            'AZURE_DICOM_CLIENT_ID': request.form.get('AZURE_DICOM_CLIENT_ID', '').strip(),
+            'AZURE_DICOM_SECRET': request.form.get('AZURE_DICOM_SECRET', '').strip()
+        }
+        
+        # Validate required fields
+        settings = session['settings']
+        if not settings['DICOM_ROOT']:
+            flash("DICOM Root Directory cannot be empty", "error")
+            return redirect(url_for('view_settings'))
+        
+        # Create DICOM root directory if it doesn't exist
+        try:
+            os.makedirs(settings['DICOM_ROOT'], exist_ok=True)
+        except Exception as e:
+            flash(f"Failed to create DICOM root directory: {str(e)}", "error")
+            return redirect(url_for('view_settings'))
+        
+        flash("Settings updated successfully for current session", "success")
+        logging.info("Settings updated via web interface")
+        
+    except Exception as e:
+        flash(f"Error updating settings: {str(e)}", "error")
+        logging.error(f"Error updating settings: {e}")
+    
+    return redirect(url_for('view_settings'))
+
+@app.route("/reset-settings")
+def reset_settings():
+    """Reset settings to original .env values"""
+    try:
+        # Clear session settings to force reload from .env
+        if 'settings' in session:
+            del session['settings']
+        flash("Settings reset to original .env file values", "success")
+        logging.info("Settings reset to .env values")
+    except Exception as e:
+        flash(f"Error resetting settings: {str(e)}", "error")
+        logging.error(f"Error resetting settings: {e}")
+    
+    return redirect(url_for('view_settings'))
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)
