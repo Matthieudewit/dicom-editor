@@ -8,6 +8,20 @@
             const el = document.getElementById(id);
             el.style.display = (el.style.display === 'none') ? 'block' : 'none';
         }
+        
+        function deleteStudy(studyName, event) {
+            // Prevent the study from toggling when delete button is clicked
+            event.stopPropagation();
+            
+            if (confirm(`Are you sure you want to delete the study "${studyName}"? This action cannot be undone.`)) {
+                // Create a form to submit the DELETE request
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/delete-study/${encodeURIComponent(studyName)}`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
     </script>
 </head>
 
@@ -26,6 +40,7 @@
     <!-- Button to fetch studies from DICOM service -->
     <div class="dicom-actions">
         <a href="{{ url_for('fetch_dicom_studies') }}" class="fetch-button">Fetch Studies from DICOM Service</a>
+        <a href="{{ url_for('load_sample_data') }}" class="load-sample-button">Load Sample Data</a>
     </div>
     
     <!-- Display DICOM service studies if available -->
@@ -60,6 +75,7 @@
                 {% else %}
                 <span class="study-upload-disabled" title="Missing required fields: Study Instance UID, Patient Name, Patient ID, or Accession Number">[Upload to DICOM - Disabled]</span>
                 {% endif %}
+                <button class="study-delete-button" onclick="deleteStudy('{{ study }}', event)">[Delete]</button>
             </span>
             <!-- <span class="chevron down" id="chevron-{{ study }}">&#9660;</span> -->
         </div>

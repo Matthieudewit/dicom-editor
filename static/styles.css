@@ -122,6 +122,21 @@ input.search-box {
     color: white;
 }
 
+.load-sample-button {
+    background: #28a745;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.load-sample-button:hover {
+    background: #1e7e34;
+    color: white;
+}
+
 .study-upload-button {
     margin-left: 1rem;
     text-decoration: none;
@@ -148,6 +163,24 @@ input.search-box {
 
 .study-download-button:hover {
     color: #138496;
+}
+
+.study-delete-button {
+    margin-left: 1rem;
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    padding: 0;
+}
+
+.study-delete-button:hover {
+    color: #c82333;
+    text-decoration: underline;
 }
 
 .dicom-study-item {

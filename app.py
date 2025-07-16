@@ -11,6 +11,7 @@ import logging
 from pydicom.uid import generate_uid
 import requests_toolbelt as tb
 import urllib3
+import shutil
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
@@ -421,6 +422,94 @@ def download_study(study_instance_uid):
         flash(f"Error downloading study: {str(e)}", "error")
     
     return redirect(url_for('fetch_dicom_studies'))
+
+@app.route("/load-sample-data")
+def load_sample_data():
+    """Load sample data by copying from dicoms_sample to dicoms folder"""
+    try:
+        sample_folder = "dicoms_sample"
+        target_folder = DICOM_ROOT
+        
+        if not os.path.exists(sample_folder):
+            flash("Sample data folder not found", "error")
+            return redirect(url_for('index'))
+        
+        # Check if sample folder has any content
+        sample_studies = [d for d in os.listdir(sample_folder) 
+                         if os.path.isdir(os.path.join(sample_folder, d)) and not d.startswith('.')]
+        
+        if not sample_studies:
+            flash("No sample studies found in sample data folder", "error")
+            return redirect(url_for('index'))
+        
+        # Ensure target directory exists
+        os.makedirs(target_folder, exist_ok=True)
+        
+        copied_count = 0
+        skipped_count = 0
+        
+        for study in sample_studies:
+            source_path = os.path.join(sample_folder, study)
+            target_path = os.path.join(target_folder, study)
+            
+            if os.path.exists(target_path):
+                logging.info(f"Study '{study}' already exists, skipping")
+                skipped_count += 1
+                continue
+            
+            try:
+                shutil.copytree(source_path, target_path)
+                logging.info(f"Copied study '{study}' from sample data")
+                copied_count += 1
+            except Exception as e:
+                logging.error(f"Failed to copy study '{study}': {e}")
+                flash(f"Failed to copy study '{study}': {str(e)}", "error")
+        
+        # Provide feedback to user
+        if copied_count > 0:
+            flash(f"Successfully loaded {copied_count} sample stud{'y' if copied_count == 1 else 'ies'}", "success")
+        
+        if skipped_count > 0:
+            flash(f"Skipped {skipped_count} stud{'y' if skipped_count == 1 else 'ies'} (already exist{'s' if skipped_count == 1 else ''})", "info")
+        
+        if copied_count == 0 and skipped_count == 0:
+            flash("No studies were loaded", "warning")
+            
+    except Exception as e:
+        flash(f"Error loading sample data: {str(e)}", "error")
+        logging.error(f"Error loading sample data: {e}")
+    
+    return redirect(url_for('index'))
+
+@app.route("/delete-study/<study>", methods=["POST"])
+def delete_study(study):
+    """Delete a local study folder and all its contents"""
+    try:
+        study_path = os.path.join(DICOM_ROOT, study)
+        
+        # Security check: ensure the study path is within DICOM_ROOT
+        if not os.path.abspath(study_path).startswith(os.path.abspath(DICOM_ROOT)):
+            flash("Invalid study path", "error")
+            return redirect(url_for('index'))
+        
+        if not os.path.exists(study_path):
+            flash(f"Study '{study}' not found", "error")
+            return redirect(url_for('index'))
+        
+        if not os.path.isdir(study_path):
+            flash(f"'{study}' is not a valid study folder", "error")
+            return redirect(url_for('index'))
+        
+        # Delete the entire study folder
+        shutil.rmtree(study_path)
+        logging.info(f"Deleted study folder: {study}")
+        flash(f"Successfully deleted study '{study}'", "success")
+        
+    except Exception as e:
+        logging.error(f"Error deleting study '{study}': {e}")
+        flash(f"Error deleting study '{study}': {str(e)}", "error")
+    
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
     app.run(debug=True)
