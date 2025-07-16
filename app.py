@@ -39,7 +39,7 @@ def get_dicom_files(study_path):
 
 @app.route("/")
 def index():
-    study_paths = get_local_studies_with_files()
+    study_paths = get_local_studies_with_metadata()
     return render_template("select.html", studies=study_paths)
 
 @app.route("/edit-study/<study>")
@@ -250,6 +250,46 @@ def get_local_studies_with_files():
         ]
         for study in studies
     }
+
+def get_local_studies_with_metadata():
+    """Get local studies with their metadata for display"""
+    studies = get_all_studies()
+    studies_with_metadata = {}
+    
+    for study in studies:
+        study_path = os.path.join(DICOM_ROOT, study)
+        dicom_files = get_dicom_files(study_path)
+        files_list = [
+            os.path.relpath(path, DICOM_ROOT)
+            for path in dicom_files
+        ]
+        
+        # Extract metadata from first DICOM file
+        metadata = {
+            'PatientName': '',
+            'PatientID': '',
+            'StudyDescription': '',
+            'AccessionNumber': '',
+            'ReferringPhysicianName': ''
+        }
+        
+        if dicom_files:
+            try:
+                sample = pydicom.dcmread(dicom_files[0], force=True)
+                metadata['PatientName'] = str(getattr(sample, "PatientName", "")).strip()
+                metadata['PatientID'] = str(getattr(sample, "PatientID", "")).strip()
+                metadata['StudyDescription'] = str(getattr(sample, "StudyDescription", "")).strip()
+                metadata['AccessionNumber'] = str(getattr(sample, "AccessionNumber", "")).strip()
+                metadata['ReferringPhysicianName'] = str(getattr(sample, "ReferringPhysicianName", "")).strip()
+            except Exception as e:
+                logging.warning(f"Failed to read metadata for study {study}: {e}")
+        
+        studies_with_metadata[study] = {
+            'files': files_list,
+            'metadata': metadata
+        }
+    
+    return studies_with_metadata
 
 def retrieve_study_from_dicom(study_instance_uid):
     """Download a study from DICOM service to local storage"""

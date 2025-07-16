@@ -44,6 +44,7 @@ form {
 .study-item {
     background: #e3e3e3;
     margin-top: 10px;
+    position: relative;
 }
 
 .study-header {
@@ -183,4 +184,46 @@ input.search-box {
     background: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
+}
+
+/* Tooltip styles for study hover */
+.study-item {
+    position: relative;
+}
+
+.study-tooltip {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #333;
+    color: #fff;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 1000;
+    min-width: 300px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.study-item:hover .study-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.study-tooltip .tooltip-item {
+    margin-bottom: 4px;
+}
+
+.study-tooltip .tooltip-label {
+    font-weight: bold;
+    color: #ccc;
+}
+
+.study-tooltip .tooltip-value {
+    color: #fff;
+    margin-left: 8px;
 }
