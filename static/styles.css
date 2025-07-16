@@ -184,6 +184,51 @@ input.search-box {
     color: white;
 }
 
+/* Study search form styles */
+.study-search-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #b8daff;
+}
+
+.study-search-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 100%;
+}
+
+.study-uid-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 14px;
+    min-width: 300px;
+}
+
+.study-uid-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0,123,255,0.3);
+}
+
+.search-study-button {
+    background: #17a2b8;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.search-study-button:hover {
+    background: #138496;
+}
+
 .study-upload-button {
     margin-left: 1rem;
     text-decoration: none;

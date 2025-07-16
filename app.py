@@ -303,6 +303,55 @@ def search_dicom_studies():
         logging.error(f"Error searching DICOM studies: {e}")
         return False, []
 
+def search_study_by_uid(study_instance_uid):
+    """Search for a specific study by Study Instance UID in the DICOM service"""
+    try:
+        azure_settings = get_azure_settings()
+        base_url = azure_settings['endpoint']
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured in session settings")
+            
+        headers = {"Authorization": get_bearer_token()}
+        url = f'{base_url}/v2/studies/{study_instance_uid}'
+        
+        # First try to get study metadata to check if it exists
+        metadata_url = f'{base_url}/v2/studies/{study_instance_uid}/metadata'
+        headers_json = {
+            "Authorization": headers["Authorization"],
+            "Accept": "application/dicom+json"
+        }
+        
+        response = requests.get(metadata_url, headers=headers_json)
+        if response.status_code == 200:
+            # Study exists, parse the metadata
+            metadata = response.json()
+            if metadata and len(metadata) > 0:
+                # Extract study information from first instance metadata
+                first_instance = metadata[0]
+                study_data = {
+                    'study_instance_uid': study_instance_uid,
+                    'patient_name': first_instance.get('00100010', {}).get('Value', [''])[0],
+                    'patient_id': first_instance.get('00100020', {}).get('Value', [''])[0],
+                    'patient_birth_date': first_instance.get('00100030', {}).get('Value', [''])[0],
+                    'accession_number': first_instance.get('00080050', {}).get('Value', [''])[0],
+                    'study_description': first_instance.get('00081030', {}).get('Value', [''])[0],
+                    'referring_physician_name': first_instance.get('00080090', {}).get('Value', [''])[0],
+                    'study_date': first_instance.get('00080020', {}).get('Value', [''])[0],
+                    'study_time': first_instance.get('00080030', {}).get('Value', [''])[0]
+                }
+                return True, [study_data]
+            else:
+                return False, []
+        elif response.status_code == 404:
+            logging.info(f"Study with UID '{study_instance_uid}' not found in DICOM service")
+            return False, []
+        else:
+            logging.error(f"Failed to search for study. Status code: {response.status_code}")
+            return False, []
+    except Exception as e:
+        logging.error(f"Error searching for study by UID: {e}")
+        return False, []
+
 def generate_random_study_instance_uid():
     """Generate a new Study Instance UID"""
     return generate_uid(prefix='1.2.528.1.1036.')
@@ -376,6 +425,40 @@ def fetch_dicom_studies():
                              dicom_studies=dicom_studies)
     except Exception as e:
         flash(f"Error fetching DICOM studies: {str(e)}", "error")
+        return redirect(url_for('index'))
+
+@app.route("/search-study-by-uid", methods=["POST"])
+def search_study_by_uid_route():
+    """Route to search for a specific study by Study Instance UID"""
+    try:
+        study_uid = request.form.get('study_uid', '').strip()
+        
+        if not study_uid:
+            flash("Please enter a Study Instance UID", "error")
+            return redirect(url_for('index'))
+        
+        # Validate UID format (basic validation)
+        if not study_uid.replace('.', '').replace('0', '').replace('1', '').replace('2', '').replace('3', '').replace('4', '').replace('5', '').replace('6', '').replace('7', '').replace('8', '').replace('9', '') == '':
+            flash("Invalid Study Instance UID format. UID should contain only numbers and dots.", "error")
+            return redirect(url_for('index'))
+        
+        success, studies = search_study_by_uid(study_uid)
+        
+        if success and studies:
+            flash(f"Found study with UID: {study_uid}", "success")
+            return render_template("select.html", 
+                                 studies=get_local_studies_with_metadata(), 
+                                 dicom_studies=studies)
+        elif success and not studies:
+            flash(f"No study found with UID: {study_uid}", "info")
+            return redirect(url_for('index'))
+        else:
+            flash(f"Error searching for study with UID: {study_uid}", "error")
+            return redirect(url_for('index'))
+    
+    except Exception as e:
+        flash(f"Error searching for study: {str(e)}", "error")
+        logging.error(f"Error in search_study_by_uid_route: {e}")
         return redirect(url_for('index'))
 
 @app.route("/upload-study/<study>")
@@ -803,6 +886,55 @@ def delete_tag(file_path):
         logging.error(f"Error deleting DICOM tag '{tag_keyword}' from file '{file_path}': {e}")
     
     return redirect(url_for('edit_file', file_path=file_path))
+
+def search_study_by_uid(study_instance_uid):
+    """Search for a specific study by Study Instance UID in the DICOM service"""
+    try:
+        azure_settings = get_azure_settings()
+        base_url = azure_settings['endpoint']
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured in session settings")
+            
+        headers = {"Authorization": get_bearer_token()}
+        url = f'{base_url}/v2/studies/{study_instance_uid}'
+        
+        # First try to get study metadata to check if it exists
+        metadata_url = f'{base_url}/v2/studies/{study_instance_uid}/metadata'
+        headers_json = {
+            "Authorization": headers["Authorization"],
+            "Accept": "application/dicom+json"
+        }
+        
+        response = requests.get(metadata_url, headers=headers_json)
+        if response.status_code == 200:
+            # Study exists, parse the metadata
+            metadata = response.json()
+            if metadata and len(metadata) > 0:
+                # Extract study information from first instance metadata
+                first_instance = metadata[0]
+                study_data = {
+                    'study_instance_uid': study_instance_uid,
+                    'patient_name': first_instance.get('00100010', {}).get('Value', [''])[0],
+                    'patient_id': first_instance.get('00100020', {}).get('Value', [''])[0],
+                    'patient_birth_date': first_instance.get('00100030', {}).get('Value', [''])[0],
+                    'accession_number': first_instance.get('00080050', {}).get('Value', [''])[0],
+                    'study_description': first_instance.get('00081030', {}).get('Value', [''])[0],
+                    'referring_physician_name': first_instance.get('00080090', {}).get('Value', [''])[0],
+                    'study_date': first_instance.get('00080020', {}).get('Value', [''])[0],
+                    'study_time': first_instance.get('00080030', {}).get('Value', [''])[0]
+                }
+                return True, [study_data]
+            else:
+                return False, []
+        elif response.status_code == 404:
+            logging.info(f"Study with UID '{study_instance_uid}' not found in DICOM service")
+            return False, []
+        else:
+            logging.error(f"Failed to search for study. Status code: {response.status_code}")
+            return False, []
+    except Exception as e:
+        logging.error(f"Error searching for study by UID: {e}")
+        return False, []
 
 if __name__ == "__main__":
     # Debug mode configuration

@@ -48,6 +48,19 @@
     <div class="dicom-actions">
         <a href="{{ url_for('fetch_dicom_studies') }}" class="fetch-button">Fetch Studies from DICOM Service</a>
         <a href="{{ url_for('load_sample_data') }}" class="load-sample-button">Load Sample Data</a>
+        
+        <!-- Search for specific study by UID -->
+        <div class="study-search-section">
+            <form method="POST" action="{{ url_for('search_study_by_uid_route') }}" class="study-search-form">
+                <input type="text" 
+                       name="study_uid" 
+                       id="study_uid" 
+                       placeholder="Enter Study Instance UID..." 
+                       class="study-uid-input"
+                       required>
+                <button type="submit" class="search-study-button">Search Study</button>
+            </form>
+        </div>
     </div>
     
     <!-- Display DICOM service studies if available -->
