@@ -20,6 +20,10 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For flash messages
 
+# Configure Flask for handling larger files and requests
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max request size
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for development
+
 # Configure logging for the Flask app
 logging.basicConfig(
     level=logging.DEBUG,
@@ -117,30 +121,133 @@ def edit_file(file_path):
     dicom_root = get_dicom_root()
     abs_path = os.path.join(dicom_root, file_path)
     ds = pydicom.dcmread(abs_path, force=True)
-    fields = [
-        {
-            "tag": str(elem.tag),
-            "keyword": elem.keyword or "(unknown)",
-            "VR": elem.VR,
-            "VM": elem.VM,
-            "length": len(str(elem.value)),
-            "value": elem.value if isinstance(elem.value, (str, int, float)) else str(elem.value),
-        }
-        for elem in ds
-        if elem.keyword
-    ]
+    
+    # Define protected tags that should not be deleted
+    protected_tags = {
+        'SOPClassUID', 'SOPInstanceUID', 'StudyInstanceUID', 'SeriesInstanceUID',
+        'PatientID', 'PatientName', 'Modality', 'TransferSyntaxUID',
+        'MediaStorageSOPClassUID', 'MediaStorageSOPInstanceUID',
+        'ImplementationClassUID', 'SpecificCharacterSet'
+    }
+    
+    fields = []
+    for elem in ds:
+        if elem.keyword:
+            try:
+                # Handle different value types more carefully
+                if isinstance(elem.value, (str, int, float)):
+                    value_str = str(elem.value)
+                elif hasattr(elem.value, '__iter__') and not isinstance(elem.value, (str, bytes)):
+                    # Handle sequences and arrays
+                    try:
+                        value_str = str(elem.value)
+                        if len(value_str) > 1000:  # Truncate very long values for display
+                            value_str = value_str[:1000] + "... [TRUNCATED - Click to edit full value]"
+                    except:
+                        value_str = f"[Complex Value - Type: {type(elem.value).__name__}]"
+                else:
+                    value_str = str(elem.value)
+                
+                # Truncate extremely long values for better UI performance
+                if len(value_str) > 1000:
+                    display_value = value_str[:1000] + "... [TRUNCATED]"
+                else:
+                    display_value = value_str
+                
+                field_data = {
+                    "tag": str(elem.tag),
+                    "keyword": elem.keyword,
+                    "VR": elem.VR,
+                    "VM": elem.VM,
+                    "length": len(str(elem.value)),
+                    "value": display_value,
+                    "original_value": value_str,  # Keep original for form submission
+                    "is_deletable": elem.keyword not in protected_tags
+                }
+                fields.append(field_data)
+                
+            except Exception as e:
+                logging.warning(f"Error processing DICOM tag {elem.keyword}: {e}")
+                # Add a fallback entry for problematic tags
+                fields.append({
+                    "tag": str(elem.tag),
+                    "keyword": elem.keyword or "(unknown)",
+                    "VR": getattr(elem, 'VR', 'UN'),
+                    "VM": getattr(elem, 'VM', '1'),
+                    "length": 0,
+                    "value": "[Error reading value]",
+                    "original_value": "",
+                    "is_deletable": (elem.keyword or "") not in protected_tags
+                })
+    
     return render_template("edit_file.html", fields=fields, file_path=file_path)
 
 
 @app.route("/save-file/<path:file_path>", methods=["POST"])
 def save_file(file_path):
-    dicom_root = get_dicom_root()
-    abs_path = os.path.join(dicom_root, file_path)
-    ds = pydicom.dcmread(abs_path, force=True)
-    for key in request.form:
-        if hasattr(ds, key):
-            setattr(ds, key, request.form[key])
-    ds.save_as(abs_path)
+    """Save changes to DICOM file"""
+    try:
+        dicom_root = get_dicom_root()
+        abs_path = os.path.join(dicom_root, file_path)
+        
+        if not os.path.exists(abs_path):
+            flash(f"DICOM file not found: {file_path}", "error")
+            return redirect(url_for('index'))
+        
+        ds = pydicom.dcmread(abs_path, force=True)
+        changes_made = []
+        
+        # Process form data more efficiently
+        for key in request.form:
+            if hasattr(ds, key):
+                try:
+                    old_value = str(getattr(ds, key, ''))
+                    new_value = request.form[key].strip()
+                    
+                    # Skip if no actual change
+                    if old_value == new_value:
+                        continue
+                    
+                    # Handle large values more carefully
+                    if len(new_value) > 10000:  # If value is very large
+                        logging.warning(f"Large value detected for tag {key}: {len(new_value)} characters")
+                        # Truncate for logging but use full value for saving
+                        log_value = new_value[:100] + "..." if len(new_value) > 100 else new_value
+                        changes_made.append(f"{key}: Large value updated ({len(new_value)} chars)")
+                    else:
+                        changes_made.append(f"{key}: '{old_value}' → '{new_value}'")
+                    
+                    # Set the new value
+                    setattr(ds, key, new_value)
+                    
+                except Exception as e:
+                    logging.warning(f"Failed to update tag {key}: {e}")
+                    continue
+        
+        if changes_made:
+            # Save with better error handling
+            try:
+                ds.save_as(abs_path)
+                flash(f"Successfully saved {len(changes_made)} change(s) to DICOM file", "success")
+                logging.info(f"Saved changes to DICOM file '{file_path}': {len(changes_made)} changes made")
+                
+                # Log first few changes for debugging
+                for change in changes_made[:3]:
+                    logging.debug(f"Change: {change}")
+                if len(changes_made) > 3:
+                    logging.debug(f"... and {len(changes_made)-3} more changes")
+                    
+            except Exception as save_error:
+                logging.error(f"Failed to save DICOM file '{file_path}': {save_error}")
+                flash(f"Error saving DICOM file: {str(save_error)}", "error")
+                return redirect(url_for('edit_file', file_path=file_path))
+        else:
+            flash("No changes detected in DICOM file", "info")
+        
+    except Exception as e:
+        logging.error(f"Error processing DICOM file '{file_path}': {e}")
+        flash(f"Error processing DICOM file: {str(e)}", "error")
+    
     return redirect(url_for('edit_file', file_path=file_path))
 
 def get_bearer_token():
@@ -646,6 +753,56 @@ def reset_settings():
         logging.error(f"Error resetting settings: {e}")
     
     return redirect(url_for('view_settings'))
+
+@app.route("/delete-tag/<path:file_path>", methods=["POST"])
+def delete_tag(file_path):
+    """Delete a specific DICOM tag from a file"""
+    try:
+        dicom_root = get_dicom_root()
+        abs_path = os.path.join(dicom_root, file_path)
+        
+        if not os.path.exists(abs_path):
+            flash(f"DICOM file not found: {file_path}", "error")
+            return redirect(url_for('index'))
+        
+        tag_keyword = request.form.get('tag_keyword')
+        if not tag_keyword:
+            flash("No tag specified for deletion", "error")
+            return redirect(url_for('edit_file', file_path=file_path))
+        
+        # Define protected tags that should not be deleted
+        protected_tags = {
+            'SOPClassUID', 'SOPInstanceUID', 'StudyInstanceUID', 'SeriesInstanceUID',
+            'PatientID', 'PatientName', 'Modality', 'TransferSyntaxUID',
+            'MediaStorageSOPClassUID', 'MediaStorageSOPInstanceUID',
+            'ImplementationClassUID', 'SpecificCharacterSet'
+        }
+        
+        if tag_keyword in protected_tags:
+            flash(f"Tag '{tag_keyword}' is protected and cannot be deleted", "error")
+            return redirect(url_for('edit_file', file_path=file_path))
+        
+        # Load and modify the DICOM file
+        ds = pydicom.dcmread(abs_path, force=True)
+        
+        if not hasattr(ds, tag_keyword):
+            flash(f"Tag '{tag_keyword}' not found in DICOM file", "warning")
+            return redirect(url_for('edit_file', file_path=file_path))
+        
+        # Delete the tag
+        delattr(ds, tag_keyword)
+        
+        # Save the modified file
+        ds.save_as(abs_path)
+        
+        flash(f"Successfully deleted DICOM tag '{tag_keyword}'", "success")
+        logging.info(f"Deleted DICOM tag '{tag_keyword}' from file: {file_path}")
+        
+    except Exception as e:
+        flash(f"Error deleting DICOM tag: {str(e)}", "error")
+        logging.error(f"Error deleting DICOM tag '{tag_keyword}' from file '{file_path}': {e}")
+    
+    return redirect(url_for('edit_file', file_path=file_path))
 
 if __name__ == "__main__":
     # Debug mode configuration

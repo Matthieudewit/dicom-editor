@@ -68,7 +68,8 @@ input[type="text"] {
 }
 
 form {
-    max-width: 800px;
+    max-width: 100%;
+    width: 100%;
 }
 
 .field-row {
@@ -318,4 +319,146 @@ input.search-box {
 .study-tooltip .tooltip-value {
     color: #fff;
     margin-left: 8px;
+}
+
+/* DICOM tag editing styles */
+.delete-tag-button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.delete-tag-button:hover {
+    background: #c82333;
+}
+
+.tag-protected {
+    color: #6c757d;
+    font-style: italic;
+    font-size: 12px;
+    padding: 4px 8px;
+}
+
+.form-actions {
+    margin-top: 20px;
+    padding: 15px 0;
+    border-top: 1px solid #ddd;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.save-button {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.save-button:hover {
+    background: #218838;
+}
+
+.cancel-button {
+    background: #6c757d;
+    color: white;
+    text-decoration: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.cancel-button:hover {
+    background: #5a6268;
+    text-decoration: none;
+}
+
+/* Table styles for DICOM tags */
+#tagTable {
+    width: 100%;
+    table-layout: fixed;
+}
+
+#tagTable th:nth-child(1),
+#tagTable td:nth-child(1) {
+    width: 120px; /* Tag ID */
+}
+
+#tagTable th:nth-child(2),
+#tagTable td:nth-child(2) {
+    width: 200px; /* Tag Description */
+}
+
+#tagTable th:nth-child(3),
+#tagTable td:nth-child(3) {
+    width: 60px; /* VR */
+}
+
+#tagTable th:nth-child(4),
+#tagTable td:nth-child(4) {
+    width: 60px; /* VM */
+}
+
+#tagTable th:nth-child(5),
+#tagTable td:nth-child(5) {
+    width: 80px; /* Length */
+}
+
+#tagTable th:nth-child(6),
+#tagTable td:nth-child(6) {
+    /* Value column takes remaining space */
+    width: auto;
+    min-width: 200px;
+}
+
+#tagTable th:nth-child(7),
+#tagTable td:nth-child(7) {
+    width: 100px; /* Actions */
+    text-align: center;
+}
+
+#tagTable input[type="text"] {
+    font-family: monospace;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#tagTable tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Ensure text doesn't overflow in fixed columns */
+#tagTable td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Enhanced search box for tag filtering */
+#searchInput {
+    border: 2px solid #007bff;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 16px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#searchInput:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
 }

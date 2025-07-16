@@ -13,6 +13,43 @@
                 row.style.display = desc.includes(filter) ? "" : "none";
             });
         }
+
+        function deleteTag(tagKeyword, tagId, filePath, event) {
+            event.preventDefault();
+            
+            if (confirm(`Are you sure you want to delete the DICOM tag "${tagKeyword}" (${tagId})? This action cannot be undone.`)) {
+                // Create a form to submit the DELETE request
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/delete-tag/${encodeURIComponent(filePath)}`;
+                
+                // Add hidden input for the tag to delete
+                const tagInput = document.createElement('input');
+                tagInput.type = 'hidden';
+                tagInput.name = 'tag_keyword';
+                tagInput.value = tagKeyword;
+                form.appendChild(tagInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function confirmSave(event) {
+            const changedInputs = document.querySelectorAll('input[type="text"]:not([data-original])');
+            let hasChanges = false;
+            
+            document.querySelectorAll('input[type="text"]').forEach(input => {
+                if (input.defaultValue !== input.value) {
+                    hasChanges = true;
+                }
+            });
+            
+            if (hasChanges) {
+                return confirm('You have unsaved changes. Do you want to save them?');
+            }
+            return true;
+        }
     </script>
 </head>
 
@@ -32,6 +69,7 @@
                     <th>VM</th>
                     <th>Length</th>
                     <th>Value</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -43,13 +81,27 @@
                     <td>{{ elem.VM }}</td>
                     <td>{{ elem.length }}</td>
                     <td>
-                        <input type="text" name="{{ elem.keyword }}" value="{{ elem.value }}">
+                        <input type="text" name="{{ elem.keyword }}" value="{{ elem.original_value or elem.value }}" data-original="{{ elem.original_value or elem.value }}">
+                    </td>
+                    <td>
+                        {% if elem.is_deletable %}
+                        <button type="button" class="delete-tag-button" 
+                                onclick="deleteTag('{{ elem.keyword }}', '{{ elem.tag }}', '{{ file_path }}', event)"
+                                title="Delete this DICOM tag">
+                            Delete
+                        </button>
+                        {% else %}
+                        <span class="tag-protected" title="This tag is required and cannot be deleted">Protected</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        <input type="submit" value="Save">
+        <div class="form-actions">
+            <input type="submit" value="Save Changes" onclick="return confirmSave(event)" class="save-button">
+            <a href="{{ url_for('index') }}" class="cancel-button">Back to Studies</a>
+        </div>
     </form>
 </body>
 
