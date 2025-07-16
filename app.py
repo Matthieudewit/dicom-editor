@@ -47,7 +47,7 @@ def edit_study(study):
     study_path = os.path.join(DICOM_ROOT, study)
     dicom_files = get_dicom_files(study_path)
 
-    sample = pydicom.dcmread(dicom_files[0]) if dicom_files else None
+    sample = pydicom.dcmread(dicom_files[0], force=True) if dicom_files else None
 
     fields = {
         "StudyInstanceUID": getattr(sample, "StudyInstanceUID", ""),
@@ -69,7 +69,7 @@ def save_study(study):
     dicom_files = get_dicom_files(study_path)
 
     for file in dicom_files:
-        ds = pydicom.dcmread(file)
+        ds = pydicom.dcmread(file, force=True)
         for key, value in request.form.items():
             if hasattr(ds, key):
                 setattr(ds, key, value)
@@ -80,7 +80,7 @@ def save_study(study):
 @app.route("/edit-file/<path:file_path>")
 def edit_file(file_path):
     abs_path = os.path.join(DICOM_ROOT, file_path)
-    ds = pydicom.dcmread(abs_path)
+    ds = pydicom.dcmread(abs_path, force=True)
     fields = [
         {
             "tag": str(elem.tag),
@@ -99,7 +99,7 @@ def edit_file(file_path):
 @app.route("/save-file/<path:file_path>", methods=["POST"])
 def save_file(file_path):
     abs_path = os.path.join(DICOM_ROOT, file_path)
-    ds = pydicom.dcmread(abs_path)
+    ds = pydicom.dcmread(abs_path, force=True)
     for key in request.form:
         if hasattr(ds, key):
             setattr(ds, key, request.form[key])
@@ -251,7 +251,7 @@ def get_local_studies_with_files():
         for study in studies
     }
 
-def retrieve_study_from_dicom(study_instance_uid, patient_name):
+def retrieve_study_from_dicom(study_instance_uid):
     """Download a study from DICOM service to local storage"""
     try:
         base_url = os.getenv("AZURE_DICOM_ENDPOINT")
@@ -266,10 +266,8 @@ def retrieve_study_from_dicom(study_instance_uid, patient_name):
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
-            # Sanitize patient name for folder creation
-            patient_name_str = patient_name.replace(' ', '_') if patient_name else 'Unknown_Patient'
-            study_instance_uid_str = str(study_instance_uid).replace('.', '_')
-            folder_name = f"{patient_name_str}_{study_instance_uid_str}"
+            # Use only Study Instance UID as folder name
+            folder_name = str(study_instance_uid).replace('.', '_')
             folder_name = sanitize_filename(folder_name)
             
             # Create local study folder
@@ -334,15 +332,11 @@ def sanitize_filename(filename: str) -> str:
         filename = filename.replace(ch, '_')
     return filename
 
-@app.route("/download-study/<study_instance_uid>/<path:patient_name>")
-def download_study(study_instance_uid, patient_name):
+@app.route("/download-study/<study_instance_uid>")
+def download_study(study_instance_uid):
     """Download a study from DICOM service to local storage"""
     try:
-        # URL decode the patient name
-        from urllib.parse import unquote
-        patient_name = unquote(patient_name)
-        
-        success, message = retrieve_study_from_dicom(study_instance_uid, patient_name)
+        success, message = retrieve_study_from_dicom(study_instance_uid)
         if success:
             flash(message, "success")
         else:

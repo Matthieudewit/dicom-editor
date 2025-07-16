@@ -59,7 +59,7 @@ Visit http://localhost:5000 to get started.
 Downloaded studies are organized as:
 ```
 dicoms/
-├── PatientName_StudyInstanceUID/
+├── 1_2_826_0_1_3680043_8_498_32281861670667127531842728344041313154/
 │   ├── series-00000/
 │   │   ├── image-00000.dcm
 │   │   ├── image-00001.dcm

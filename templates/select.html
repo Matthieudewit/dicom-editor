@@ -35,7 +35,7 @@
     <div class="dicom-study-item">
         <div class="study-header">
             <span><strong>{{ study.patient_name }}</strong> - {{ study.study_description }} ({{ study.study_date }})
-                <a class="study-download-button" href="{{ url_for('download_study', study_instance_uid=study.study_instance_uid, patient_name=study.patient_name|urlencode) }}">[Download to Local]</a>
+                <a class="study-download-button" href="{{ url_for('download_study', study_instance_uid=study.study_instance_uid) }}">[Download to Local]</a>
             </span>
         </div>
         <div class="study-details">
