@@ -132,6 +132,13 @@ input.search-box {
     color: #155724;
 }
 
+.study-upload-disabled {
+    margin-left: 1rem;
+    color: #6c757d;
+    font-style: italic;
+    cursor: not-allowed;
+}
+
 .study-download-button {
     margin-left: 1rem;
     text-decoration: none;

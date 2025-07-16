@@ -55,13 +55,21 @@
         <div class="study-header">
             <span>{{ study }} 
                 <a class="study-edit-button" href="{{ url_for('edit_study', study=study) }}">[Edit study]</a>
+                {% if study_data.is_valid_for_upload %}
                 <a class="study-upload-button" href="{{ url_for('upload_study', study=study) }}">[Upload to DICOM]</a>
+                {% else %}
+                <span class="study-upload-disabled" title="Missing required fields: Study Instance UID, Patient Name, Patient ID, or Accession Number">[Upload to DICOM - Disabled]</span>
+                {% endif %}
             </span>
             <!-- <span class="chevron down" id="chevron-{{ study }}">&#9660;</span> -->
         </div>
         
         <!-- Hover tooltip with study metadata -->
         <div class="study-tooltip">
+            <div class="tooltip-item">
+                <span class="tooltip-label">Study Instance UID:</span>
+                <span class="tooltip-value">{{ study_data.metadata.StudyInstanceUID or 'N/A' }}</span>
+            </div>
             <div class="tooltip-item">
                 <span class="tooltip-label">Patient Name:</span>
                 <span class="tooltip-value">{{ study_data.metadata.PatientName or 'N/A' }}</span>

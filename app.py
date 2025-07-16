@@ -230,6 +230,28 @@ def upload_study(study):
             flash(f"Study '{study}' not found", "error")
             return redirect(url_for('index'))
         
+        # Check if study is valid for upload
+        dicom_files = get_dicom_files(study_path)
+        if dicom_files:
+            try:
+                sample = pydicom.dcmread(dicom_files[0], force=True)
+                metadata = {
+                    'StudyInstanceUID': str(getattr(sample, "StudyInstanceUID", "")).strip(),
+                    'PatientName': str(getattr(sample, "PatientName", "")).strip(),
+                    'PatientID': str(getattr(sample, "PatientID", "")).strip(),
+                    'AccessionNumber': str(getattr(sample, "AccessionNumber", "")).strip()
+                }
+                
+                if not is_study_valid_for_upload(metadata):
+                    flash(f"Study '{study}' cannot be uploaded: missing required fields (Study Instance UID, Patient Name, Patient ID, or Accession Number)", "error")
+                    return redirect(url_for('index'))
+            except Exception as e:
+                flash(f"Error validating study '{study}': {str(e)}", "error")
+                return redirect(url_for('index'))
+        else:
+            flash(f"Study '{study}' has no DICOM files", "error")
+            return redirect(url_for('index'))
+        
         success = upload_study_to_dicom(study_path)
         if success:
             flash(f"Study '{study}' successfully uploaded to DICOM service", "success")
@@ -251,6 +273,17 @@ def get_local_studies_with_files():
         for study in studies
     }
 
+def is_study_valid_for_upload(study_metadata):
+    """Check if a study has the required metadata fields for upload to DICOM service"""
+    required_fields = ['StudyInstanceUID', 'PatientName', 'PatientID', 'AccessionNumber']
+    
+    for field in required_fields:
+        value = study_metadata.get(field, '').strip()
+        if not value or value.lower() == 'n/a':
+            return False
+    
+    return True
+
 def get_local_studies_with_metadata():
     """Get local studies with their metadata for display"""
     studies = get_all_studies()
@@ -270,7 +303,8 @@ def get_local_studies_with_metadata():
             'PatientID': '',
             'StudyDescription': '',
             'AccessionNumber': '',
-            'ReferringPhysicianName': ''
+            'ReferringPhysicianName': '',
+            'StudyInstanceUID': ''
         }
         
         if dicom_files:
@@ -281,12 +315,14 @@ def get_local_studies_with_metadata():
                 metadata['StudyDescription'] = str(getattr(sample, "StudyDescription", "")).strip()
                 metadata['AccessionNumber'] = str(getattr(sample, "AccessionNumber", "")).strip()
                 metadata['ReferringPhysicianName'] = str(getattr(sample, "ReferringPhysicianName", "")).strip()
+                metadata['StudyInstanceUID'] = str(getattr(sample, "StudyInstanceUID", "")).strip()
             except Exception as e:
                 logging.warning(f"Failed to read metadata for study {study}: {e}")
         
         studies_with_metadata[study] = {
             'files': files_list,
-            'metadata': metadata
+            'metadata': metadata,
+            'is_valid_for_upload': is_study_valid_for_upload(metadata)
         }
     
     return studies_with_metadata
