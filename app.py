@@ -204,7 +204,7 @@ def upload_study_to_dicom(study_path):
     """Upload a local study to the DICOM service using STOW-RS"""
     try:
         azure_settings = get_azure_settings()
-        base_url = azure_settings.get("AZURE_DICOM_ENDPOINT")
+        base_url = azure_settings.get("endpoint")
         if not base_url:
             raise ValueError("AZURE_DICOM_ENDPOINT not configured")
             
@@ -386,7 +386,7 @@ def retrieve_study_from_dicom(study_instance_uid):
     """Download a study from DICOM service to local storage"""
     try:
         azure_settings = get_azure_settings()
-        base_url = azure_settings.get("AZURE_DICOM_ENDPOINT")
+        base_url = azure_settings.get("endpoint")
         if not base_url:
             raise ValueError("AZURE_DICOM_ENDPOINT not configured")
             
@@ -395,6 +395,7 @@ def retrieve_study_from_dicom(study_instance_uid):
         headers['Accept'] = 'multipart/related; type="application/dicom"; transfer-syntax=*'
         
         logging.debug(f"Retrieving study from URL: {url}")
+        flash("[STARTED] Starting download DICOM study to local. Please be patient.", "info")
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
