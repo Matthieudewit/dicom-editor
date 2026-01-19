@@ -218,6 +218,22 @@ input.search-box {
     box-shadow: 0 0 5px rgba(0,123,255,0.3);
 }
 
+.search-type-select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.search-type-select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0,123,255,0.3);
+}
+
 .search-study-button {
     background: #17a2b8;
     color: white;

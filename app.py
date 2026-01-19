@@ -355,6 +355,53 @@ def search_study_by_uid(study_instance_uid):
         logging.error(f"Error searching for study by UID: {e}")
         return False, []
 
+def search_studies(search_params):
+    """Search for studies in the DICOM service using various parameters"""
+    try:
+        azure_settings = get_azure_settings()
+        base_url = azure_settings['endpoint']
+        if not base_url:
+            raise ValueError("AZURE_DICOM_ENDPOINT not configured in session settings")
+            
+        headers = {
+            "Authorization": get_bearer_token(),
+            "Accept": "application/dicom+json"
+        }
+        
+        url = f'{base_url}/v2/studies'
+        
+        logging.info(f"Searching studies with params: {search_params}")
+        response = requests.get(url, headers=headers, params=search_params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            studies = []
+            
+            # Parse the response to extract study information
+            for item in data:
+                # Extract DICOM tags from the response
+                study_data = {
+                    'study_instance_uid': item.get('0020000D', {}).get('Value', [''])[0] if '0020000D' in item else '',
+                    'patient_name': item.get('00100010', {}).get('Value', [{}])[0].get('Alphabetic', '') if '00100010' in item else '',
+                    'patient_id': item.get('00100020', {}).get('Value', [''])[0] if '00100020' in item else '',
+                    'patient_birth_date': item.get('00100030', {}).get('Value', [''])[0] if '00100030' in item else '',
+                    'accession_number': item.get('00080050', {}).get('Value', [''])[0] if '00080050' in item else '',
+                    'study_description': item.get('00081030', {}).get('Value', [''])[0] if '00081030' in item else '',
+                    'referring_physician_name': item.get('00080090', {}).get('Value', [{}])[0].get('Alphabetic', '') if '00080090' in item else '',
+                    'study_date': item.get('00080020', {}).get('Value', [''])[0] if '00080020' in item else '',
+                    'study_time': item.get('00080030', {}).get('Value', [''])[0] if '00080030' in item else ''
+                }
+                studies.append(study_data)
+            
+            logging.info(f"Found {len(studies)} studies")
+            return True, studies
+        else:
+            logging.error(f"Failed to search studies. Status code: {response.status_code}, Response: {response.text}")
+            return False, []
+    except Exception as e:
+        logging.error(f"Error searching studies: {e}")
+        return False, []
+
 def generate_random_study_instance_uid():
     """Generate a new Study Instance UID"""
     return generate_uid(prefix='1.2.528.1.1036.')
@@ -462,6 +509,60 @@ def search_study_by_uid_route():
     except Exception as e:
         flash(f"Error searching for study: {str(e)}", "error")
         logging.error(f"Error in search_study_by_uid_route: {e}")
+        return redirect(url_for('index'))
+
+@app.route("/advanced-search", methods=["POST"])
+def advanced_search_route():
+    """Route to search studies by various parameters"""
+    try:
+        search_type = request.form.get('search_type', '').strip()
+        search_value = request.form.get('search_value', '').strip()
+        
+        if not search_type or not search_value:
+            flash("Please select a search type and enter a search value", "error")
+            return redirect(url_for('index'))
+        
+        # Build search parameters based on search type
+        search_params = {}
+        
+        if search_type == 'PatientName':
+            search_params['PatientName'] = search_value
+            search_params['fuzzymatching'] = 'true'
+            flash_field = "Patient Name"
+        elif search_type == 'PatientBirthDate':
+            # Validate date format (YYYYMMDD)
+            if not (len(search_value) == 8 and search_value.isdigit()):
+                flash("Patient Birth Date must be in YYYYMMDD format (e.g., 19800115)", "error")
+                return redirect(url_for('index'))
+            search_params['PatientBirthDate'] = search_value
+            flash_field = "Patient Birth Date"
+        elif search_type == 'PatientID':
+            search_params['PatientID'] = search_value
+            flash_field = "Patient ID"
+        elif search_type == 'AccessionNumber':
+            search_params['AccessionNumber'] = search_value
+            flash_field = "Accession Number"
+        else:
+            flash("Invalid search type", "error")
+            return redirect(url_for('index'))
+        
+        success, studies = search_studies(search_params)
+        
+        if success and studies:
+            flash(f"Found {len(studies)} study/studies matching {flash_field}: {search_value}", "success")
+            return render_template("select.html", 
+                                 studies=get_local_studies_with_metadata(), 
+                                 dicom_studies=studies)
+        elif success and not studies:
+            flash(f"No studies found matching {flash_field}: {search_value}", "info")
+            return redirect(url_for('index'))
+        else:
+            flash(f"Error searching for studies with {flash_field}: {search_value}", "error")
+            return redirect(url_for('index'))
+    
+    except Exception as e:
+        flash(f"Error performing advanced search: {str(e)}", "error")
+        logging.error(f"Error in advanced_search_route: {e}")
         return redirect(url_for('index'))
 
 @app.route("/upload-study/<study>")

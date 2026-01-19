@@ -58,7 +58,27 @@
                        placeholder="Enter Study Instance UID..." 
                        class="study-uid-input"
                        required>
-                <button type="submit" class="search-study-button">Search Study</button>
+                <button type="submit" class="search-study-button">Search by UID</button>
+            </form>
+        </div>
+        
+        <!-- Advanced search form -->
+        <div class="study-search-section">
+            <form method="POST" action="{{ url_for('advanced_search_route') }}" class="study-search-form">
+                <select name="search_type" id="search_type" class="search-type-select" required>
+                    <option value="">Select Search Type...</option>
+                    <option value="PatientName">Patient Name</option>
+                    <option value="PatientID">Patient ID</option>
+                    <option value="PatientBirthDate">Patient Birth Date (YYYYMMDD)</option>
+                    <option value="AccessionNumber">Accession Number</option>
+                </select>
+                <input type="text" 
+                       name="search_value" 
+                       id="search_value" 
+                       placeholder="Enter search value..." 
+                       class="study-uid-input"
+                       required>
+                <button type="submit" class="search-study-button">Advanced Search</button>
             </form>
         </div>
     </div>
