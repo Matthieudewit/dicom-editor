@@ -31,6 +31,7 @@ MANIFEST
 
 # Ignore everything inside the dicoms/ folder
 dicoms/*
+dicoms_local_backup/*
 !dicoms/.gitkeep
 .ignore
 
